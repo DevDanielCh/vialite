@@ -25,6 +25,7 @@ import { SiteConfigPage } from "./components/shell/SiteConfigPage.tsx";
 import { QmkSettingsPanel } from "./components/qmk/QmkSettingsPanel.tsx";
 import { RgbPanel } from "./components/rgb/RgbPanel.tsx";
 import { KeyboardColorPanel } from "./components/color/KeyboardColorPanel.tsx";
+import { KeyOverridePanel } from "./components/keyoverride/KeyOverridePanel.tsx";
 import { TapDancePanel } from "./components/tapdance/TapDancePanel.tsx";
 import { SpinnerIcon, WaitingForConnection } from "./components/connect/WaitingForConnection.tsx";
 import { useI18n } from "./contexts/i18n.tsx";
@@ -235,7 +236,9 @@ function App() {
                           ? t("navTapDance")
                           : nav.mode === "combo"
                             ? t("navCombo")
-                            : nav.mode === "rgb"
+                            : nav.mode === "keyoverride"
+                              ? t("navKeyOverride")
+                              : nav.mode === "rgb"
                               ? t("navRgb")
                             : nav.mode === "color"
                               ? t("navKeyboardColor")
@@ -249,6 +252,7 @@ function App() {
                   {nav.mode === "macro" && <HelpIcon text={t("macroHint")} />}
                   {nav.mode === "tapdance" && <HelpIcon text={t("tapDanceHint")} />}
                   {nav.mode === "combo" && <HelpIcon text={t("comboHint")} />}
+                  {nav.mode === "keyoverride" && <HelpIcon text={t("keyOverrideHint")} />}
                   {nav.mode === "rgb" && <HelpIcon text={t("rgbHint")} />}
                 </div>
                 {nav.mode === "matrix" && (
@@ -498,6 +502,9 @@ function App() {
               )}
               {keyboard && nav.mode === "combo" && (
                 <ComboPanel keyboard={keyboard} />
+              )}
+              {keyboard && nav.mode === "keyoverride" && (
+                <KeyOverridePanel keyboard={keyboard} />
               )}
               {keyboard && nav.mode === "rgb" && <RgbPanel keyboard={keyboard} />}
               {keyboard && nav.mode === "advanced" && (

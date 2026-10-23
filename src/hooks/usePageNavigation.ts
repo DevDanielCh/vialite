@@ -11,6 +11,7 @@ export type PageMode =
   | "macro"
   | "tapdance"
   | "combo"
+  | "keyoverride"
   | "rgb"
   | "color"
   | "advanced"

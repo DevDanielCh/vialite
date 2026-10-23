@@ -28,6 +28,7 @@ Cada item abaixo corresponde a uma página na barra lateral do aplicativo, na or
 | **Macros** | Grave e edite sequências de macro. *(Requer suporte do dispositivo.)* |
 | **Tap Dance** | Configure ações de toque único / toque duplo e hold / tap-hold. *(Requer suporte do dispositivo.)* |
 | **Combos** | Defina combos de múltiplas teclas com cartões de pré-visualização e reordenação. *(Requer suporte do dispositivo.)* |
+| **Substituições de teclas** | Troque uma tecla de gatilho por outra com base em modificadores exigidos / proibidos e camadas ativas. *(Requer suporte do dispositivo.)* |
 | **Iluminação RGB** *(Beta)* | Controle VialRGB (QMK `rgb_matrix`): efeito, matiz/saturação/brilho e velocidade. As alterações são apenas na RAM até você clicar em Salvar, o que as grava na EEPROM. |
 | **Importar / Exportar** | Leia e grave arquivos de layout `.vil` através do serializador reimplementado. |
 | **Teste de teclado** | Diagnóstico de matriz com fluxo de desbloqueio e polling para verificar cada switch. *(Requer suporte do dispositivo.)* |
@@ -35,7 +36,7 @@ Cada item abaixo corresponde a uma página na barra lateral do aplicativo, na or
 | **Pré-visualização 3D** *(Beta)* | Renderiza o seu layout atual em um modelo de teclado 3D. |
 | **Configurações do site** | Idioma (中文 / English / 日本語 / Français / Português), tema claro / escuro, registro de depuração e redefinição de cache. As preferências persistem em `localStorage`. |
 
-Páginas que dependem das capacidades do dispositivo (Macros, Tap Dance, Combos, Teste de teclado) aparecem esmaecidas quando o teclado conectado não as suporta. A Iluminação RGB permanece acessível em qualquer placa e explica na própria página quando o firmware não tem iluminação VialRGB.
+Páginas que dependem das capacidades do dispositivo (Macros, Tap Dance, Combos, Substituições de teclas, Teste de teclado) aparecem esmaecidas quando o teclado conectado não as suporta. A Iluminação RGB permanece acessível em qualquer placa e explica na própria página quando o firmware não tem iluminação VialRGB.
 
 A interface oferece suporte a inglês, chinês simplificado, japonês, francês e português do Brasil (dicionário escrito à mão, sem biblioteca de i18n); as legendas dos keycaps permanecem em inglês para corresponder ao `vial-gui`.
 

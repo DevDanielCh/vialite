@@ -51,9 +51,10 @@ real deploy — don't do it without being asked.
 - `keyboard.ts` (`Keyboard`) — the main protocol client. `reload()` fetches the device's
   `vial.json` definition (transferred in 28-byte chunks, xz-compressed, decompressed via
   `xz-decompress`), keyboard matrix, per-layer keymap, encoder layout, and layout options. Exposes
-  `setKey`/`setEncoder`/`setLayoutOptions` (write-through, only sends a command when the value
-  actually changed), `saveLayout()`/`restoreLayout()` for `.vil` import/export, and the
-  unlock/matrix-tester flow (`getUnlockStatus`, `unlockStart/Poll`, `lock`, `getMatrixState`).
+  `setKey`/`setEncoder`/`setLayoutOptions`/`setTapDance`/`setCombo`/`setKeyOverride`
+  (write-through, only sends a command when the value actually changed), `saveLayout()`/
+  `restoreLayout()` for `.vil` import/export, and the unlock/matrix-tester flow
+  (`getUnlockStatus`, `unlockStart/Poll`, `lock`, `getMatrixState`).
 - `keycodes.ts` — the keycode name↔value tables. **Version-sensitive**: Vial protocol < 6 uses v5
   keycode values, >= 6 uses v6 (QMK 0.19+ renumbered layer/mod-tap/quantum keycodes). Call
   `setKeycodeVersion()` once the device's `vialProtocol` is known (done inside
@@ -71,7 +72,8 @@ real deploy — don't do it without being asked.
 `WaitingForConnection` (connect/disconnect flow and browser-support messaging via
 `browserSupport.ts`), `KeyboardLayout` (renders the physical layout from `layoutGeometry.ts` +
 `keyEventMap.ts`), `KeycodePicker` (search/assign UI), `LayerTabs`, `LayoutOptions`,
-`MatrixTester`/`UnlockDialog` (unlock-and-poll flow gated on `Keyboard.supportsMatrixTester`).
+`MatrixTester`/`UnlockDialog` (unlock-and-poll flow gated on `Keyboard.supportsMatrixTester`),
+`TapDancePanel`/`ComboPanel`/`KeyOverridePanel` (the three dynamic-entry editors).
 
 **`src/App.tsx`** owns all top-level state (connection status, active `Keyboard` instance, selected
 key/encoder, current layer/mode) and wires components together; there's no external state library.
@@ -89,9 +91,14 @@ themselves (Enter, LShift, ...) stay in English regardless of UI language, match
 
 ## Known gaps / in-progress state
 
-Not yet implemented: key overrides, alt-repeat key, and the two legacy VIA lighting backends
-(`qmk_backlight` / `qmk_rgblight` — their command constants exist in `constants.ts` but are unused).
-These are parsed-through/preserved in `.vil` files where applicable but have no UI.
+Not yet implemented: alt-repeat key, and the two legacy VIA lighting backends (`qmk_backlight` /
+`qmk_rgblight` — their command constants exist in `constants.ts` but are unused). These are
+parsed-through/preserved in `.vil` files where applicable but have no UI.
+
+Key overrides are implemented end-to-end: `Keyboard.reloadDynamic` reads `key override_count` and
+each entry (`trigger`/`replacement` u16, `layers` u16, three modifier masks and `options` u8),
+`KeyOverridePanel` edits them, and `saveLayout`/`restoreLayout` round-trip the `key_override` array.
+The protocol supports at most 16 layers (bitmask), so the panel shows `min(keyboard.layers, 16)`.
 
 RGB is implemented for VialRGB only (`vial.json`'s `lighting === "vialrgb"`, i.e. QMK `rgb_matrix`):
 `Keyboard.reloadRgb` + `setRgb*`/`saveRgb` in `keyboard.ts`, the effect-id table in

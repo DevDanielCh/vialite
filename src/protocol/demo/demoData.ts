@@ -30,7 +30,10 @@ import {
   QMK_SETTINGS_QSID_TAP_HOLD_FLAGS,
   QMK_SETTINGS_QSID_TAPPING_TERM,
   QMK_SETTINGS_QSID_TAPPING_TOGGLE,
+  KEY_OVERRIDE_OPT_ACTIVATION_TRIGGER_DOWN,
+  KEY_OVERRIDE_OPT_ENABLED,
   type ComboEntry,
+  type KeyOverrideEntry,
   type MacroAction,
   type TapDanceEntry,
 } from "../keyboard.ts";
@@ -181,6 +184,27 @@ export const DEMO_TAP_DANCE: TapDanceEntry[] = [
 export const DEMO_COMBOS: ComboEntry[] = [
   { keys: ["KC_J", "KC_K", "KC_NO", "KC_NO"], output: "KC_ESCAPE" },
   { keys: ["KC_LSHIFT", "KC_RSHIFT", "KC_NO", "KC_NO"], output: "KC_CAPSLOCK" },
+];
+
+export const DEMO_KEY_OVERRIDES: KeyOverrideEntry[] = [
+  {
+    trigger: "KC_BSPACE",
+    replacement: "KC_DELETE",
+    layers: 0xffff,
+    triggerMods: 0x02,
+    negativeModMask: 0,
+    suppressedMods: 0,
+    options: KEY_OVERRIDE_OPT_ENABLED | KEY_OVERRIDE_OPT_ACTIVATION_TRIGGER_DOWN,
+  },
+  {
+    trigger: "KC_ESCAPE",
+    replacement: "KC_GRAVE",
+    layers: 0xffff,
+    triggerMods: 0x02,
+    negativeModMask: 0,
+    suppressedMods: 0,
+    options: KEY_OVERRIDE_OPT_ENABLED | KEY_OVERRIDE_OPT_ACTIVATION_TRIGGER_DOWN,
+  },
 ];
 
 export const DEMO_MACROS: MacroAction[][] = [

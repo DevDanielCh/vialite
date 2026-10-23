@@ -10,7 +10,7 @@
 //     "layout_options": <int>,                     // -1 when the board has no layout options
 //     "via_protocol": <int>, "vial_protocol": <int>,
 //     "tap_dance": [...], "combo": [...], "key_override": [...],
-//     "alt_repeat_key": [...], "settings": {...}   // features Vialite doesn't support yet
+//     "alt_repeat_key": [...], "settings": {...}   // alt-repeat / settings not restored yet
 //   }
 //
 // Two deliberate deviations from a byte-identical vial-gui export:
@@ -23,6 +23,16 @@
 import { deserialize as kcDeserialize, serialize as kcSerialize } from "./keycodes.ts";
 
 /** Data snapshot handed over by Keyboard.saveLayout(). */
+export interface VilKeyOverride {
+  trigger: string;
+  replacement: string;
+  layers: number;
+  trigger_mods: number;
+  negative_mod_mask: number;
+  suppressed_mods: number;
+  options: number;
+}
+
 export interface VilSnapshot {
   uid: bigint;
   viaProtocol: number;
@@ -32,6 +42,7 @@ export interface VilSnapshot {
   layout: (string | -1)[][][];
   /** [layer][encoderIndex] -> [ccw, cw] qmk_ids, -1 for absent encoder slots. */
   encoderLayout: [string | -1, string | -1][][];
+  keyOverrides: VilKeyOverride[];
 }
 
 export interface VilRestoreReport {
@@ -50,6 +61,8 @@ export interface ParsedVilFile {
   encoderLayout: unknown[][][];
   /** Packed layout-options value, -1 when absent from the file. */
   layoutOptions: number;
+  /** Raw key override entries; normalizeVilKeyOverride() validates them. */
+  keyOverrides: unknown[];
   /** Human-readable names of unsupported features the file carries real data for. */
   skippedFeatures: string[];
 }
@@ -68,7 +81,7 @@ export function serializeVil(s: VilSnapshot): string {
     via_protocol: s.viaProtocol,
     tap_dance: [],
     combo: [],
-    key_override: [],
+    key_override: s.keyOverrides,
     alt_repeat_key: [],
     settings: {},
   };
@@ -112,7 +125,22 @@ export function parseVil(text: string): ParsedVilFile {
   const layoutOptions =
     typeof obj.layout_options === "number" && Number.isInteger(obj.layout_options) ? obj.layout_options : -1;
 
-  return { uid, layout, encoderLayout, layoutOptions, skippedFeatures: detectSkippedFeatures(obj) };
+  let keyOverrides: unknown[] = [];
+  if (obj.key_override !== undefined) {
+    if (!Array.isArray(obj.key_override)) {
+      throw new Error('Not a valid .vil file: malformed "key_override"');
+    }
+    keyOverrides = obj.key_override;
+  }
+
+  return {
+    uid,
+    layout,
+    encoderLayout,
+    layoutOptions,
+    keyOverrides,
+    skippedFeatures: detectSkippedFeatures(obj),
+  };
 }
 
 /**
@@ -130,14 +158,57 @@ export function normalizeVilKeycode(entry: unknown, unknown: Set<string>): strin
     return kcSerialize(entry);
   }
   if (typeof entry === "string") {
-    const code = kcDeserialize(entry);
-    if (code === 0 && entry !== "KC_NO" && !/^0x0+$/i.test(entry)) {
+    try {
+      const code = kcDeserialize(entry);
+      if (code === 0 && entry !== "KC_NO" && !/^0x0+$/i.test(entry)) {
+        unknown.add(entry);
+        return null;
+      }
+      return kcSerialize(code);
+    } catch {
       unknown.add(entry);
       return null;
     }
-    return kcSerialize(code);
   }
   return null;
+}
+
+/** Validates one raw .vil key_override entry and normalizes its keycodes. */
+export function normalizeVilKeyOverride(entry: unknown, unknown: Set<string>): VilKeyOverride | null {
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    return null;
+  }
+  const obj = entry as Record<string, unknown>;
+  const trigger = normalizeVilKeycode(obj.trigger, unknown);
+  const replacement = normalizeVilKeycode(obj.replacement, unknown);
+  if (trigger === null || replacement === null) {
+    return null;
+  }
+  const numeric = (value: unknown, max: number): number | null =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= max ? value : null;
+  const layers = numeric(obj.layers, 0xffff);
+  const triggerMods = numeric(obj.trigger_mods, 0xff);
+  const negativeModMask = numeric(obj.negative_mod_mask, 0xff);
+  const suppressedMods = numeric(obj.suppressed_mods, 0xff);
+  const options = numeric(obj.options, 0xff);
+  if (
+    layers === null ||
+    triggerMods === null ||
+    negativeModMask === null ||
+    suppressedMods === null ||
+    options === null
+  ) {
+    return null;
+  }
+  return {
+    trigger,
+    replacement,
+    layers,
+    trigger_mods: triggerMods,
+    negative_mod_mask: negativeModMask,
+    suppressed_mods: suppressedMods,
+    options,
+  };
 }
 
 function isNestedArray(value: unknown, depth: number): boolean {
@@ -172,16 +243,13 @@ function detectSkippedFeatures(obj: Record<string, unknown>): string[] {
     skipped.push("combos");
   }
 
-  // For key overrides / alt repeat keys, "configured" means the enabled bit is
-  // set in the options bitmask (bit 7 and bit 3 respectively, per vial-gui).
+  // For alt repeat keys, "configured" means the enabled bit is set in the
+  // options bitmask (bit 3, per vial-gui).
   const enabledBitSet = (entry: unknown, bit: number): boolean =>
     typeof entry === "object" &&
     entry !== null &&
     typeof (entry as Record<string, unknown>).options === "number" &&
     ((entry as Record<string, number>).options & bit) !== 0;
-  if (Array.isArray(obj.key_override) && obj.key_override.some((e) => enabledBitSet(e, 1 << 7))) {
-    skipped.push("key overrides");
-  }
   if (Array.isArray(obj.alt_repeat_key) && obj.alt_repeat_key.some((e) => enabledBitSet(e, 1 << 3))) {
     skipped.push("alt repeat keys");
   }

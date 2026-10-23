@@ -28,6 +28,7 @@ Each item below is one page in the app's sidebar, in the order they appear:
 | **Macros** | Record and edit macro sequences. *(Requires device support.)* |
 | **Tap Dance** | Configure single-tap / double-tap and hold / tap-hold actions. *(Requires device support.)* |
 | **Combos** | Define multi-key combos with preview cards and reordering. *(Requires device support.)* |
+| **Key Overrides** | Replace a trigger key with another key based on required / forbidden modifiers and active layers. *(Requires device support.)* |
 | **RGB Lighting** *(Beta)* | VialRGB (QMK `rgb_matrix`) control: effect, hue/saturation/brightness and speed. Changes are RAM-only until you hit Save, which commits them to EEPROM. |
 | **Import / Export** | Read and write `.vil` layout files through the reimplemented serializer. |
 | **Keyboard Test** | Unlock-and-poll matrix diagnostics for checking every switch. *(Requires device support.)* |
@@ -35,7 +36,7 @@ Each item below is one page in the app's sidebar, in the order they appear:
 | **3D Preview** *(Beta)* | Renders your current layout on a 3D keyboard model. |
 | **Website Settings** | Language (中文 / English / 日本語 / Français / Português), light / dark theme, debug logging, and a cache reset. Preferences persist to `localStorage`. |
 
-Pages that depend on device capabilities (Macros, Tap Dance, Combos, Keyboard Test) appear greyed out when the connected keyboard doesn't support them. RGB Lighting stays reachable on every board and explains in-page when the firmware has no VialRGB lighting.
+Pages that depend on device capabilities (Macros, Tap Dance, Combos, Key Overrides, Keyboard Test) appear greyed out when the connected keyboard doesn't support them. RGB Lighting stays reachable on every board and explains in-page when the firmware has no VialRGB lighting.
 
 The UI supports English, Simplified Chinese, Japanese, French, and Brazilian Portuguese (hand-rolled dictionary, no i18n library); keycap legends stay in English to match `vial-gui`.
 

@@ -26,6 +26,7 @@ type PushablePageMode =
   | "macro"
   | "tapdance"
   | "combo"
+  | "keyoverride"
   | "rgb"
   | "advanced"
   | "siteConfig";

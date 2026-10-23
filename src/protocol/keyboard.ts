@@ -1,7 +1,7 @@
 // Ported (MVP subset) from vial-gui's protocol/keyboard_comm.py::Keyboard.
 // Covers layers, keymap/encoder remapping, layout options, macros, tap dance,
-// combos, QMK settings, the unlock/matrix-tester flow, and VialRGB lighting.
-// Key overrides, alt-repeat key, and the legacy VIA lighting backends
+// combos, key overrides, QMK settings, the unlock/matrix-tester flow, and
+// VialRGB lighting. Alt-repeat key and the legacy VIA lighting backends
 // (qmk_backlight / qmk_rgblight) are intentionally left out for now.
 
 import pkg from "xz-decompress";
@@ -19,7 +19,13 @@ import {
 } from "./keycodes.ts";
 import { deserializeMacros, serializeMacros, type MacroAction } from "./macro.ts";
 import { ProtocolError, type Transport } from "./transport.ts";
-import { normalizeVilKeycode, type ParsedVilFile, type VilRestoreReport, type VilSnapshot } from "./vilFile.ts";
+import {
+  normalizeVilKeycode,
+  normalizeVilKeyOverride,
+  type ParsedVilFile,
+  type VilRestoreReport,
+  type VilSnapshot,
+} from "./vilFile.ts";
 
 export type { MacroAction };
 
@@ -35,6 +41,35 @@ export interface TapDanceEntry {
 export interface ComboEntry {
   keys: [string, string, string, string];
   output: string;
+}
+
+/**
+ * Bits of `KeyOverrideEntry.options` (vial-gui's KeyOverrideOptions.serialize).
+ * The enabled bit is separate from the six activation-behaviour bits so a slot
+ * can keep its configuration while being switched off.
+ */
+export const KEY_OVERRIDE_OPT_ACTIVATION_TRIGGER_DOWN = 1 << 0;
+export const KEY_OVERRIDE_OPT_ACTIVATION_REQUIRED_MOD_DOWN = 1 << 1;
+export const KEY_OVERRIDE_OPT_ACTIVATION_NEGATIVE_MOD_UP = 1 << 2;
+export const KEY_OVERRIDE_OPT_ONE_MOD = 1 << 3;
+export const KEY_OVERRIDE_OPT_NO_REREGISTER_TRIGGER = 1 << 4;
+export const KEY_OVERRIDE_OPT_NO_UNREGISTER_ON_OTHER_KEY_DOWN = 1 << 5;
+export const KEY_OVERRIDE_OPT_ENABLED = 1 << 7;
+
+/** One QMK key overrides entry, mirroring vial-gui's KeyOverrideEntry. */
+export interface KeyOverrideEntry {
+  trigger: string;
+  replacement: string;
+  /** 16-bit layer mask; bit n enables the override on layer n. */
+  layers: number;
+  /** 8-bit modifier mask: LCtrl, LShift, LAlt, LGui, RCtrl, RShift, RAlt, RGui. */
+  triggerMods: number;
+  /** Modifiers whose release activates the override. */
+  negativeModMask: number;
+  /** Modifiers stripped from the replacement key's output. */
+  suppressedMods: number;
+  /** Bitmask of KEY_OVERRIDE_OPT_* values. */
+  options: number;
 }
 
 const { XzReadableStream } = pkg;
@@ -202,6 +237,19 @@ function comboEqual(a: ComboEntry | undefined, b: ComboEntry): boolean {
   return !!a && a.output === b.output && a.keys.every((k, i) => k === b.keys[i]);
 }
 
+function keyOverrideEqual(a: KeyOverrideEntry | undefined, b: KeyOverrideEntry): boolean {
+  return (
+    !!a &&
+    a.trigger === b.trigger &&
+    a.replacement === b.replacement &&
+    a.layers === b.layers &&
+    a.triggerMods === b.triggerMods &&
+    a.negativeModMask === b.negativeModMask &&
+    a.suppressedMods === b.suppressedMods &&
+    a.options === b.options
+  );
+}
+
 function concatUint8Arrays(chunks: Uint8Array<ArrayBuffer>[]): Uint8Array<ArrayBuffer> {
   const total = chunks.reduce((sum, c) => sum + c.length, 0);
   const out = new Uint8Array(total);
@@ -311,8 +359,10 @@ export class Keyboard {
 
   tapDanceCount = 0;
   comboCount = 0;
+  keyOverrideCount = 0;
   tapDanceEntries: TapDanceEntry[] = [];
   comboEntries: ComboEntry[] = [];
+  keyOverrideEntries: KeyOverrideEntry[] = [];
 
   macroCount = 0;
   macroMemory = 0;
@@ -551,6 +601,28 @@ export class Keyboard {
     view.setUint16(12, kcDeserialize(entry.output), true);
     await this.transport.send(cmd, 20);
     this.comboEntries[idx] = entry;
+    this.notify();
+  }
+
+  async setKeyOverride(idx: number, entry: KeyOverrideEntry): Promise<void> {
+    if (keyOverrideEqual(this.keyOverrideEntries[idx], entry)) {
+      return;
+    }
+    const cmd = new Uint8Array(14);
+    const view = new DataView(cmd.buffer);
+    cmd[0] = C.CMD_VIA_VIAL_PREFIX;
+    cmd[1] = C.CMD_VIAL_DYNAMIC_ENTRY_OP;
+    cmd[2] = C.DYNAMIC_VIAL_KEY_OVERRIDE_SET;
+    cmd[3] = idx;
+    view.setUint16(4, kcDeserialize(entry.trigger), true);
+    view.setUint16(6, kcDeserialize(entry.replacement), true);
+    view.setUint16(8, entry.layers, true);
+    cmd[10] = entry.triggerMods & 0xff;
+    cmd[11] = entry.negativeModMask & 0xff;
+    cmd[12] = entry.suppressedMods & 0xff;
+    cmd[13] = entry.options & 0xff;
+    await this.transport.send(cmd, 20);
+    this.keyOverrideEntries[idx] = entry;
     this.notify();
   }
 
@@ -844,13 +916,15 @@ export class Keyboard {
     this.layoutOptions = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(2, false);
   }
 
-  /** Tap dance / combo counts + entries (vial-gui's protocol/dynamic.py + tap_dance.py/combo.py). */
+  /** Tap dance / combo / key override counts + entries (vial-gui's protocol/dynamic.py). */
   private async reloadDynamic(): Promise<void> {
     if (this.vialProtocol < C.VIAL_PROTOCOL_DYNAMIC) {
       this.tapDanceCount = 0;
       this.comboCount = 0;
+      this.keyOverrideCount = 0;
       this.tapDanceEntries = [];
       this.comboEntries = [];
+      this.keyOverrideEntries = [];
       setTapDanceCount(0);
       return;
     }
@@ -860,6 +934,7 @@ export class Keyboard {
     );
     this.tapDanceCount = data[0];
     this.comboCount = data[1];
+    this.keyOverrideCount = data[2];
     setTapDanceCount(this.tapDanceCount);
 
     this.tapDanceEntries = [];
@@ -886,6 +961,32 @@ export class Keyboard {
         output: kcSerialize(out),
       });
     }
+
+    this.keyOverrideEntries = [];
+    for (let i = 0; i < this.keyOverrideCount; i++) {
+      this.keyOverrideEntries.push(await this.fetchKeyOverrideEntry(i));
+    }
+  }
+
+  /** Fetches one key override entry; unlike tap dance/combo it mixes u16 and u8 fields. */
+  private async fetchKeyOverrideEntry(idx: number): Promise<KeyOverrideEntry> {
+    const data = await this.transport.send(
+      new Uint8Array([C.CMD_VIA_VIAL_PREFIX, C.CMD_VIAL_DYNAMIC_ENTRY_OP, C.DYNAMIC_VIAL_KEY_OVERRIDE_GET, idx]),
+      20,
+    );
+    if (data[0] !== 0) {
+      throw new ProtocolError(`failed retrieving dynamic entry (cmd=${C.DYNAMIC_VIAL_KEY_OVERRIDE_GET}, idx=${idx})`);
+    }
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    return {
+      trigger: kcSerialize(view.getUint16(1, true)),
+      replacement: kcSerialize(view.getUint16(3, true)),
+      layers: view.getUint16(5, true),
+      triggerMods: data[7],
+      negativeModMask: data[8],
+      suppressedMods: data[9],
+      options: data[10],
+    };
   }
 
   /**
@@ -1259,6 +1360,15 @@ export class Keyboard {
       layoutOptions: this.layoutOptions,
       layout,
       encoderLayout,
+      keyOverrides: this.keyOverrideEntries.map((e) => ({
+        trigger: e.trigger,
+        replacement: e.replacement,
+        layers: e.layers,
+        trigger_mods: e.triggerMods,
+        negative_mod_mask: e.negativeModMask,
+        suppressed_mods: e.suppressedMods,
+        options: e.options,
+      })),
     };
   }
 
@@ -1266,8 +1376,9 @@ export class Keyboard {
    * Writes a parsed .vil file to the device. Like vial-gui's restore_layout,
    * only positions that exist on this keyboard are written, and only when they
    * differ from the current assignment. Unsupported .vil content (macros, tap
-   * dance, ...) is not applied; keycodes this build can't resolve are skipped
-   * and reported.
+   * dance, combos, ...) is not applied; key overrides are restored when the
+   * board exposes them. Keycodes this build can't resolve are skipped and
+   * reported.
    */
   async restoreLayout(file: ParsedVilFile): Promise<VilRestoreReport> {
     const unknown = new Set<string>();
@@ -1312,6 +1423,27 @@ export class Keyboard {
             written++;
           }
         }
+      }
+    }
+
+    const keyOverrideCount = Math.min(file.keyOverrides.length, this.keyOverrideCount);
+    for (let i = 0; i < keyOverrideCount; i++) {
+      const entry = normalizeVilKeyOverride(file.keyOverrides[i], unknown);
+      if (entry === null) {
+        continue;
+      }
+      const next: KeyOverrideEntry = {
+        trigger: entry.trigger,
+        replacement: entry.replacement,
+        layers: entry.layers,
+        triggerMods: entry.trigger_mods,
+        negativeModMask: entry.negative_mod_mask,
+        suppressedMods: entry.suppressed_mods,
+        options: entry.options,
+      };
+      if (!keyOverrideEqual(this.keyOverrideEntries[i], next)) {
+        await this.setKeyOverride(i, next);
+        written++;
       }
     }
 

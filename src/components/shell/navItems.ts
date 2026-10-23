@@ -6,6 +6,7 @@ type PageMode =
   | "macro"
   | "tapdance"
   | "combo"
+  | "keyoverride"
   | "rgb"
   | "color"
   | "advanced";
@@ -16,6 +17,7 @@ export type NavKind =
   | "macro"
   | "tapDance"
   | "combo"
+  | "keyOverride"
   | "rgb"
   | "keyboardColor"
   | "advanced";
@@ -27,6 +29,7 @@ export const NAV_ITEMS: { kind: NavKind; mode: PageMode; labelKey: MessageKey; i
   { kind: "macro", mode: "macro", labelKey: "navMacro", icon: "mdi:script-text-outline" },
   { kind: "tapDance", mode: "tapdance", labelKey: "navTapDance", icon: "mdi:animation" },
   { kind: "combo", mode: "combo", labelKey: "navCombo", icon: "mdi:vector-combine" },
+  { kind: "keyOverride", mode: "keyoverride", labelKey: "navKeyOverride", icon: "mdi:swap-horizontal" },
   { kind: "rgb", mode: "rgb", labelKey: "navRgb", icon: "mdi:led-strip-variant", beta: true },
   { kind: "matrixTest", mode: "matrix", labelKey: "navMatrixTest", icon: "mdi:view-grid-outline" },
   { kind: "advanced", mode: "advanced", labelKey: "navAdvanced", icon: "mdi:tune-variant" },

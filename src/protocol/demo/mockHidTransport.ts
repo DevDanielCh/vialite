@@ -4,7 +4,7 @@
 // the real (unmodified) `Keyboard` class drives it exactly as it would a physical board: every
 // panel that only talks to `Keyboard`'s public API works without knowing it's a fake.
 //
-// State (keymap, encoders, tap dance/combo, macros, QMK settings, VialRGB) starts from
+// State (keymap, encoders, tap dance/combo/key overrides, macros, QMK settings, VialRGB) starts from
 // demoData.ts and is mutated in place by write commands, mirroring real firmware RAM — a
 // reload (page refresh) starts fresh, same as power-cycling a board that never got its
 // EEPROM save committed. The unlock and matrix-tester commands additionally *simulate*
@@ -25,6 +25,7 @@ import {
   DEMO_LAYERS,
   DEMO_LAYER_COUNT,
   DEMO_MACROS,
+  DEMO_KEY_OVERRIDES,
   DEMO_MACRO_MEMORY,
   DEMO_PRODUCT_ID,
   DEMO_PRODUCT_NAME,
@@ -72,6 +73,16 @@ interface ComboRaw {
   output: number;
 }
 
+interface KeyOverrideRaw {
+  trigger: number;
+  replacement: number;
+  layers: number;
+  triggerMods: number;
+  negativeModMask: number;
+  suppressedMods: number;
+  options: number;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -103,6 +114,7 @@ export class MockHidTransport implements Transport {
   private layoutOptions = 0;
   private tapDance: TapDanceRaw[] = [];
   private combos: ComboRaw[] = [];
+  private keyOverrides: KeyOverrideRaw[] = [];
   private macroBuffer = new Uint8Array(DEMO_MACRO_MEMORY);
 
   private readonly qmkSettings = new Map<number, number>(
@@ -146,6 +158,15 @@ export class MockHidTransport implements Transport {
     this.combos = DEMO_COMBOS.map((e) => ({
       keys: e.keys.map(safeDeserialize) as [number, number, number, number],
       output: safeDeserialize(e.output),
+    }));
+    this.keyOverrides = DEMO_KEY_OVERRIDES.map((e) => ({
+      trigger: safeDeserialize(e.trigger),
+      replacement: safeDeserialize(e.replacement),
+      layers: e.layers,
+      triggerMods: e.triggerMods,
+      negativeModMask: e.negativeModMask,
+      suppressedMods: e.suppressedMods,
+      options: e.options,
     }));
 
     this.macroBuffer.set(serializeMacros(DEMO_MACROS, DEMO_VIAL_PROTOCOL));
@@ -394,8 +415,10 @@ export class MockHidTransport implements Transport {
   ): void {
     switch (cmd[2]) {
       case C.DYNAMIC_VIAL_GET_NUMBER_OF_ENTRIES:
+        this.ensureFirmwareState();
         resp[0] = this.tapDance.length;
         resp[1] = this.combos.length;
+        resp[2] = this.keyOverrides.length;
         return;
       case C.DYNAMIC_VIAL_TAP_DANCE_GET: {
         this.ensureFirmwareState();
@@ -444,9 +467,37 @@ export class MockHidTransport implements Transport {
         resp[0] = 0;
         return;
       }
+      case C.DYNAMIC_VIAL_KEY_OVERRIDE_GET: {
+        this.ensureFirmwareState();
+        const entry = this.keyOverrides[cmd[3]];
+        resp[0] = entry ? 0 : 1;
+        if (entry) {
+          view.setUint16(1, entry.trigger, true);
+          view.setUint16(3, entry.replacement, true);
+          view.setUint16(5, entry.layers, true);
+          resp[7] = entry.triggerMods;
+          resp[8] = entry.negativeModMask;
+          resp[9] = entry.suppressedMods;
+          resp[10] = entry.options;
+        }
+        return;
+      }
+      case C.DYNAMIC_VIAL_KEY_OVERRIDE_SET: {
+        this.ensureFirmwareState();
+        this.keyOverrides[cmd[3]] = {
+          trigger: cv.getUint16(4, true),
+          replacement: cv.getUint16(6, true),
+          layers: cv.getUint16(8, true),
+          triggerMods: cmd[10],
+          negativeModMask: cmd[11],
+          suppressedMods: cmd[12],
+          options: cmd[13],
+        };
+        resp[0] = 0;
+        return;
+      }
       default:
-        // Key overrides / alt-repeat key: no UI reads these (see CLAUDE.md's known-gaps note),
-        // so they're never actually requested — left unhandled rather than faked.
+        // Alt-repeat key has no UI yet, so it's never actually requested.
         return;
     }
   }
