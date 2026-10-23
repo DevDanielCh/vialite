@@ -64,7 +64,7 @@ export function SiteSettingsPanel() {
             description={t("languageDesc")}
             control={
               <select
-                className="select select-sm w-36"
+                className="select select-sm w-44"
                 value={lang}
                 onChange={(e) => setLang(e.target.value as Lang)}
                 aria-label={t("languageTitle")}
@@ -73,6 +73,7 @@ export function SiteSettingsPanel() {
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
                 <option value="fr">Français</option>
+                <option value="pt-BR">Português (Brasil)</option>
               </select>
             }
           />

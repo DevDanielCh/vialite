@@ -2,10 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useI18n, type Lang } from "../../contexts/i18n.tsx";
 
-// Cycled by the translate button below — only toggles between en and zh; ja/fr
-// are reachable elsewhere (e.g. 网站配置) but not from this quick-toggle button.
-const LANGS: Lang[] = ["en", "zh"];
-const LANG_NATIVE_NAME: Record<Lang, string> = { en: "English", zh: "中文", ja: "日本語", fr: "Français" };
+// Cycled by the translate button below — toggles en/zh/pt-BR; ja/fr are
+// reachable elsewhere (e.g. 网站配置) but not from this quick-toggle button.
+const LANGS: Lang[] = ["en", "zh", "pt-BR"];
+const LANG_NATIVE_NAME: Record<Lang, string> = {
+  en: "English",
+  zh: "中文",
+  ja: "日本語",
+  fr: "Français",
+  "pt-BR": "Português (Brasil)",
+};
 import { useTheme } from "../../contexts/theme.tsx";
 import { usePreviewAppearance } from "../../contexts/previewAppearance.tsx";
 import { KeyboardLayoutEditor } from "../keymap/layout/KeyboardLayoutEditor.tsx";

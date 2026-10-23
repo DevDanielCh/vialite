@@ -137,7 +137,12 @@ export function RgbPanel({ keyboard }: Props) {
   // The device can report an effect id newer than our table; keep it selectable
   // rather than silently snapping the dropdown to something else.
   if (!effects.some((e) => e.id === mode)) {
-    effects.push({ id: mode, en: rgbEffectName(mode, "en"), zh: rgbEffectName(mode, "zh") });
+    effects.push({
+      id: mode,
+      en: rgbEffectName(mode, "en"),
+      zh: rgbEffectName(mode, "zh"),
+      pt: rgbEffectName(mode, "pt-BR"),
+    });
     effects.sort((a, b) => a.id - b.id);
   }
 

@@ -6,8 +6,8 @@ import { getSupportStatus, getBrowserInfo, type SupportStatus } from "../../lib/
 import { DebugLogToggle } from "../common/DebugLogToggle.tsx";
 import type { ConnectionStatus } from "./DeviceConnect.tsx";
 
-// Cycled by the translate button below — fixed en → zh → ja → fr order.
-const LANGS: Lang[] = ["en", "zh", "ja", "fr"];
+// Cycled by the translate button below — fixed en → zh → ja → fr → pt-BR order.
+const LANGS: Lang[] = ["en", "zh", "ja", "fr", "pt-BR"];
 
 // The banner shown for each way the browser can't do WebHID; `supported` never
 // renders one. Keyed so the text re-translates live on a language switch.
